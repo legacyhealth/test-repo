@@ -1,0 +1,49 @@
+# Syntax - <regular expressions>:output file:<maximum length>:<min date>:<handle AMT*I segments>:<ignore PLB>
+# 1. regular expressions can be a list of comma-delimited regular expressions to match the invoice number on. Leaving this list blank means no invoice will match for this file.
+#
+# 2. output file is the name of the file where the invoice matching the regular expression should go to. You can use special expressions to add case specific information to the file name. A "*i" will be replaced by the input file name and a "*d" will be replaced by the date and time (hours and minutes only) information. A "*t" will be replaced by the data and time (hour, minutes and seconds).
+#
+# 3. maximum length is an optional parameter to specify the maximum valid length of an invoice while matching on the regular expressions
+#
+# 4. minimum date is an optional parameter to restrict matching an invoice on the regular expression only if the date in the DTM segment is after the specified date. The date format is CCYYMMDD
+#
+# 5. handle AMT*I segments, when set to 1, totals up the amounts in these segments and reduces the L6 amount in the PLB segment.
+#
+# 6. ignore PLB, when set to 1, removes the PLB segment from the file if it was going to be put in there. The amounts are not affected at all. The PLB segment is simply deleted.
+#
+# 7. handle AMT*KH segments, when set to 1, totals up the amounts in these segments and adds it to the 50 amount in the PLB segment.  It also offsets the BPR segment only for reporting purposes. The actual adjustment to the BPR segment happens through a cache override.
+#
+# 8. user friendly description of what the file is (e.g. "Epic PB").  Include a trailing : even if this is the last field so that the line break doesn't get sucked in as part of the description
+# The order of the configuration files matter because an invoice that does not match any of the regular expressions will be directed to the output file of the last line. 
+
+# Rule 0: Claims for any account number that is:
+#  2 to 7 characters long, or ({1,7} won't work since , is the expression delim)
+#  "0" followed by 7 characters, or
+#  "14" followed by 6 characters, or
+#  Starts with "TSSC", or
+#  Ends with .0
+# Should be routed to Medical Manager
+^...?.?.?.?.?$,^((0.)|(14)).{6}$,^TSSC*,*\.0$:remit/835/work/PB_MM-*i::::::PB Medical Manager:
+
+# Rule 1: Claims for any account number that is:
+#  "5", "6", "7", "8", or "9" and is 11 digits long, or
+#  Starts with "IME"
+# Should be route to EpicHB
+^(5|6|7|8|9)\d{10}$,^IME*:remit/835/work/EpicHB-*i::::::HB Epic:
+
+# Rule 2: Invoice numbers that are:
+#  10 digits long and start with 1
+# Should be routed to EpicPB
+^1\d{9}$:remit/835/work/EpicPB-*i::::::PB Epic:
+
+# Rule 3: All other invoices should be sent to MS4
+#  "14", "20", or "30", followed by 7 or 9 characters, and maybe followed by a "P"
+# Should be routed to MS4
+#^((14)|(20)|(30))((.{7})|(.{9}))P?$:remit/835/work/HB_MS4-*i*y::::::HB Med Series 4:
+*:remit/835/work/HB_MS4-*i::::::HB Med Series 4:
+
+# Rule 4: This is just a placeholder, imaginary billing system for PLB adjustments
+*:/epic/billing/remit/835/work/PLBAdjustments-*i::::::PLB Adjustments:
+
+# specify the billing system the plb file should go to. The configuration line number starts with line 0.
+plb billing: 4
